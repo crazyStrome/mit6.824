@@ -5,8 +5,6 @@ import (
 	"hash/fnv"
 	"log"
 	"net/rpc"
-	"sync"
-	"time"
 )
 
 //
@@ -43,81 +41,8 @@ func Worker(mapf func(string, string) []KeyValue,
 
 	// Your worker implementation here.
 
-	// executeTask(mapf, reducef)
-	var mu sync.Mutex
-	var flag bool
-	var wg sync.WaitGroup
-	var ch = make(chan struct{}, 10)
-
-	for !flag {
-		ch <- struct{}{}
-		wg.Add(1)
-		go func(mapf func(string, string) []KeyValue,
-			reducef func(string, []string) string) {
-			var t = executeTask(mapf, reducef)
-			if t == NONE {
-				mu.Lock()
-				flag = true
-				mu.Unlock()
-			}
-			<-ch
-			wg.Done()
-		}(mapf, reducef)
-		time.Sleep(1 * time.Second)
-	}
-	wg.Wait()
-	log.Printf("every task is done, bye bye")
-
-	// uncomment to send the Example RPC to the master.
-
 	// CallExample()
 
-}
-func executeTask(mapf func(string, string) []KeyValue,
-	reducef func(string, []string) string) TaskType {
-	var worker = WorkerInfo{
-		WorkerID: workID(),
-	}
-	var task = Task{}
-	call("Master.FetchTask", &worker, &task)
-	if task.CurType == NONE {
-		log.Printf("there is no task to execute: [%+v]\n", task)
-		return NONE
-	}
-	if task.CurType == MAP {
-		intermidate := mapf(task.FileName, task.Content)
-		log.Printf("the len of data out of mapf is [%+v]\n", len(intermidate))
-
-		var res = Result{
-			TaskContent: task,
-			WorkerID:    worker.WorkerID,
-			Words:       intermidate,
-		}
-		var code = TaskExecuteStatus{}
-		call("Master.SubmitResult", &res, &code)
-		log.Printf("the status code of submit is [%+v]\n", code)
-		return MAP
-	}
-	if task.CurType == REDUCE {
-		var count = []KeyValue{}
-		for word, vs := range task.Words {
-			var c = reducef(word, vs)
-			count = append(count, KeyValue{
-				Key:   word,
-				Value: c,
-			})
-		}
-		var res = Result{
-			TaskContent: task,
-			WorkerID:    worker.WorkerID,
-			Count:       count,
-		}
-		var code = TaskExecuteStatus{}
-		call("Master.SubmitResult", &res, &code)
-		log.Printf("the status code of submit is [%+v]\n", code)
-		return REDUCE
-	}
-	return NONE
 }
 
 //
