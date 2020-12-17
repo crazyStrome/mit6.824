@@ -12,6 +12,7 @@ package main
 import (
 	"6824/mr"
 	"fmt"
+	"log"
 	"os"
 	"time"
 )
@@ -28,4 +29,5 @@ func main() {
 	}
 
 	time.Sleep(time.Second)
+	log.Println("master's all work has been done, bye")
 }
